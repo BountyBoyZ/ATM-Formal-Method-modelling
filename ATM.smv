@@ -1,0 +1,78 @@
+MODULE main
+
+VAR
+  state : {create_accounts, no_card_ops, card_ops, buy_credit, pay_bill, transfer, withdraw, deposit, done};
+  entered_acc : 0..3;
+  trials : 0..3;
+  phone_num : 0..999999999;
+  amount : {0, 10, 20, 50, 100};
+  bill_id : 0..999999999;
+  accounts : array 1..3 of Account;
+
+ASSIGN
+  init(state) := create_accounts;
+  init(accounts[1].acc_num) := 1;
+  init(accounts[1].name) := "Ali";
+  init(accounts[1].balance) := 1000;
+  init(accounts[1].pin1) := "1234";
+  init(accounts[1].pin2) := "5678";
+
+  init(accounts[2].acc_num) := 2;
+  init(accounts[2].name) := "Reza";
+  init(accounts[2].balance) := 2000;
+  init(accounts[2].pin1) := "2345";
+  init(accounts[2].pin2) := "6789";
+
+  init(accounts[3].acc_num) := 3;
+  init(accounts[3].name) := "Sara";
+  init(accounts[3].balance) := 3000;
+  init(accounts[3].pin1) := "3456";
+  init(accounts[3].pin2) := "7890";
+
+TRANS
+  -- Create accounts state
+  state = create_accounts -> next(state) = no_card_ops;
+
+  -- No card operations
+  state = no_card_ops -> next(state) in {buy_credit, pay_bill};
+
+  -- Buy credit
+  state = buy_credit -> next(state) = done;
+  state = buy_credit & amount = 10 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - 10;
+  state = buy_credit & amount = 50 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - 50;
+  state = buy_credit & amount = 100 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - 100;
+
+  -- Pay bill
+  state = pay_bill -> next(state) = done;
+  state = pay_bill & bill_id mod 2 = 0 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - 100;
+  state = pay_bill & bill_id mod 2 != 0 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - 50;
+
+  -- Card operations
+  state = card_ops -> next(state) in {transfer, withdraw, deposit};
+  state = card_ops & trials < 3 & accounts[entered_acc].pin1 != "1234" -> next(trials) = trials + 1;
+  state = card_ops & trials = 3 -> next(state) = create_accounts;
+  state = card_ops & trials < 3 & accounts[entered_acc].pin1 = "1234" -> next(state) in {transfer, withdraw, deposit};
+
+  -- Transfer
+  state = transfer -> next(state) = done;
+  state = transfer & entered_acc != 0 -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - amount;
+  state = transfer & entered_acc != 0 -> next(accounts[2].balance) = accounts[2].balance + amount;
+
+  -- Withdraw
+  state = withdraw -> next(state) = done;
+  state = withdraw & amount <= accounts[entered_acc].balance -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance - amount;
+
+  -- Deposit
+  state = deposit -> next(state) = done;
+  state = deposit -> next(accounts[entered_acc].balance) = accounts[entered_acc].balance + amount;
+
+  -- Done
+  state = done -> next(state) = create_accounts;
+
+MODULE Account
+VAR
+  acc_num : 1..3;
+  name : string;
+  balance : 0..10000;
+  pin1 : string;
+  pin2 : string;
